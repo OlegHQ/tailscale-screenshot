@@ -1,0 +1,83 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  width: 320px;
+  background: #fff;
+  color: #222;
+}
+#container { padding: 12px; }
+#header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+#title { font-weight: 600; }
+#settings-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  color: #555;
+}
+#settings {
+  background: #f5f5f5;
+  padding: 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+#settings.hidden { display: none; }
+#settings label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #555;
+}
+#settings input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.hint { font-size: 11px; color: #888; margin-top: 4px; }
+#preview-wrapper {
+  background: #eee;
+  border-radius: 4px;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+#preview { max-width: 100%; max-height: 160px; border-radius: 3px; }
+#preview:not([src]), #preview[src=""] { display: none; }
+#upload {
+  width: 100%;
+  padding: 8px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+#upload:disabled { background: #ccc; cursor: not-allowed; }
+#upload:not(:disabled):hover { background: #1557b0; }
+#status {
+  margin-top: 8px;
+  font-size: 12px;
+  min-height: 16px;
+}
+#status.success { color: #0a8043; }
+#status.error { color: #c5221f; }
+#status .url {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  word-break: break-all;
+}

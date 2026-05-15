@@ -1,0 +1,8 @@
+name: tailscale-screenshot
+description: Tailscale Screenshot Sharer
+command: __INSTALL_DIR__/tailscale-screenshot
+workdir: __DATA_DIR__
+environment:
+  PORT: "__PORT__"
+  DATA_DIR: __DATA_DIR__
+restart: always

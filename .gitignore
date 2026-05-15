@@ -1,0 +1,4 @@
+server/target/
+.smdctl.rendered.yml
+*.swp
+.DS_Store

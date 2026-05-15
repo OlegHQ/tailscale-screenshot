@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="container">
+    <div id="header">
+      <span id="title">Tailscale Screenshot</span>
+      <button id="settings-toggle" title="Settings" aria-label="Settings">⚙</button>
+    </div>
+    <div id="settings" class="hidden">
+      <label for="server-url">Server URL</label>
+      <input type="text" id="server-url" placeholder="http://host.tail-XXXX.ts.net:7777" autocomplete="off" spellcheck="false">
+      <div class="hint">The server prints this URL on startup.</div>
+    </div>
+    <div id="main">
+      <div id="preview-wrapper"><img id="preview" alt=""></div>
+      <button id="upload" disabled>Upload</button>
+    </div>
+    <div id="status"></div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
