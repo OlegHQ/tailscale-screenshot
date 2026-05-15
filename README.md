@@ -1,8 +1,8 @@
 # tailscale-screenshot
 
 Built this because I kept dragging PNGs into Slack and Discord one at a time
-like an animal. Now I copy a screenshot, hit `Ctrl+Shift+U`, press Enter, and
-a URL lands on my clipboard. Paste it. Done.
+like an animal. Now I copy a screenshot, hit `Ctrl+Shift+U`, and a URL lands
+on my clipboard. Paste it. Done.
 
 The server is a single static Rust binary running on a box in my tailnet, so
 the only people who can reach it are me on my other devices. No auth, no TLS,
@@ -16,7 +16,7 @@ sequenceDiagram
     participant Ext as Chrome popup
     participant Srv as Rust server (on your tailnet)
     You->>You: screenshot to clipboard
-    You->>Ext: Ctrl+Shift+U, Enter
+    You->>Ext: Ctrl+Shift+U
     Ext->>Srv: POST /upload (image bytes)
     Srv->>Srv: save as <id>.png
     Srv-->>Ext: { "url": "http://host.ts.net:7777/s/<id>.png" }

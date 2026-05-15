@@ -5,8 +5,6 @@ const setStatus = (msg, cls) => {
   el.className = cls || "";
 };
 
-let currentBlob = null;
-
 async function loadServerUrl() {
   const { serverUrl = "" } = await chrome.storage.local.get("serverUrl");
   $("server-url").value = serverUrl;
@@ -30,40 +28,34 @@ async function readClipboardImage() {
   return null;
 }
 
-function showPreview(blob) {
-  $("preview").src = URL.createObjectURL(blob);
-  $("upload").disabled = false;
-  currentBlob = blob;
-}
-
-async function upload() {
-  const serverUrl = await saveServerUrl();
-  if (!serverUrl) {
-    setStatus("Configure the server URL first.", "error");
-    $("settings").classList.remove("hidden");
+async function autoUpload(serverUrl) {
+  setStatus("Reading clipboard…");
+  let blob;
+  try {
+    blob = await readClipboardImage();
+  } catch (e) {
+    setStatus("Clipboard read failed: " + e.message, "error");
     return;
   }
-  if (!currentBlob) {
-    setStatus("No image to upload.", "error");
+  if (!blob) {
+    setStatus("No image on clipboard.", "error");
     return;
   }
-  $("upload").disabled = true;
   setStatus("Uploading…");
   try {
     const res = await fetch(serverUrl + "/upload", {
       method: "POST",
-      headers: { "Content-Type": currentBlob.type },
-      body: currentBlob,
+      headers: { "Content-Type": blob.type },
+      body: blob,
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const { url } = await res.json();
     if (!url) throw new Error("no url in response");
     await navigator.clipboard.writeText(url);
     setStatus('Copied <span class="url">' + url + "</span>", "success");
-    setTimeout(() => window.close(), 1200);
+    setTimeout(() => window.close(), 800);
   } catch (e) {
     setStatus("Upload failed: " + e.message, "error");
-    $("upload").disabled = false;
   }
 }
 
@@ -72,10 +64,6 @@ async function init() {
     $("settings").classList.toggle("hidden"),
   );
   $("server-url").addEventListener("blur", saveServerUrl);
-  $("upload").addEventListener("click", upload);
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !$("upload").disabled) upload();
-  });
 
   const serverUrl = await loadServerUrl();
   if (!serverUrl) {
@@ -83,18 +71,7 @@ async function init() {
     setStatus("Set the server URL to begin.");
     return;
   }
-
-  try {
-    const blob = await readClipboardImage();
-    if (!blob) {
-      setStatus("No image on clipboard.", "error");
-      return;
-    }
-    showPreview(blob);
-    setStatus("Ready — press Enter or click Upload.");
-  } catch (e) {
-    setStatus("Clipboard read failed: " + e.message, "error");
-  }
+  await autoUpload(serverUrl);
 }
 
 init();
