@@ -51,8 +51,9 @@ async function autoUpload(serverUrl) {
     if (!res.ok) throw new Error("HTTP " + res.status);
     const { url } = await res.json();
     if (!url) throw new Error("no url in response");
-    await navigator.clipboard.writeText(url);
-    setStatus('Copied <span class="url">' + url + "</span>", "success");
+    const prompt = `[Use curl to download and read this screenshot: ${url}]`;
+    await navigator.clipboard.writeText(prompt);
+    setStatus('Copied <span class="url">' + prompt + "</span>", "success");
     setTimeout(() => window.close(), 800);
   } catch (e) {
     setStatus("Upload failed: " + e.message, "error");
