@@ -4,9 +4,10 @@ Built this because I kept dragging PNGs into Slack and Discord one at a time
 like an animal. Now I copy a screenshot, hit `Ctrl+Shift+U`, and a URL lands
 on my clipboard. Paste it. Done.
 
-The server is a single static Rust binary running on a box in my tailnet, so
-the only people who can reach it are me on my other devices. No auth, no TLS,
-no database. Tailscale is the perimeter.
+The server is a single static Rust binary running on a box in my tailnet. It
+guards uploads with a Basic-auth password (default `changeme`, override with
+`PASSWORD`) so it's safe to put behind a public HTTPS proxy too. No TLS of its
+own, no database — terminate TLS at the proxy (or stay on the tailnet).
 
 ## How it works
 
@@ -121,37 +122,57 @@ Installing the `.xpi` in Developer Edition:
 The keyboard shortcut lives at `about:addons` → gear → *Manage Extension
 Shortcuts* if `Ctrl+Shift+U` is taken.
 
+## Auth
+
+`POST /upload` requires HTTP Basic auth. The password comes from the `PASSWORD`
+env var and defaults to the deliberately-insecure `changeme` so it works out of
+the box — set `PASSWORD` to something real, especially if the server is exposed
+beyond your tailnet. The username is ignored; only the password is checked.
+
+Set the same password in the extension (gear → Password). Reads (`GET /s/<id>`)
+stay public so the URLs you paste remain fetchable by whatever consumes them.
+
 ## API
 
 In case you want to script around it:
 
 ```
-POST /upload
+POST /upload                          (requires Basic auth)
+  Authorization: Basic base64(user:<password>)
   Content-Type: image/{png,jpeg,gif,webp}
   body: raw image bytes (10 MB cap)
   -> 200 { "url": "...", "id": "..." }
+  -> 401 if the password is wrong/missing
 
-GET  /s/<id>.<ext>     the image, with the right Content-Type
-GET  /healthz          "ok"
+GET  /s/<id>.<ext>     the image, with the right Content-Type (public)
+GET  /healthz          "ok" (public)
 ```
 
 `curl` example:
 
 ```
-curl -X POST -H 'Content-Type: image/png' \
+curl -u :changeme -X POST -H 'Content-Type: image/png' \
      --data-binary @shot.png \
-     http://host.tail-XXXX.ts.net:7777/upload
+     https://host.tail-XXXX.ts.net/upload
 ```
 
 ## Config
 
 All optional, all env vars:
 
-| var        | default                                | what it does                    |
-|------------|----------------------------------------|---------------------------------|
-| `PORT`     | `7777`                                 | port to listen on               |
-| `DATA_DIR` | `./screenshots` (Makefile overrides)   | where files are written         |
-| `BASE_URL` | auto-detected from `tailscale status`  | override the URL it advertises  |
+| var        | default                                | what it does                              |
+|------------|----------------------------------------|-------------------------------------------|
+| `PORT`     | `7777`                                 | port to listen on                         |
+| `DATA_DIR` | `./screenshots` (Makefile overrides)   | where files are written                   |
+| `PASSWORD` | `changeme`                             | Basic-auth password for `/upload`         |
+| `BASE_URL` | derived per-request from `Host`/`X-Forwarded-*` | pin the advertised URL instead   |
+
+`BASE_URL` is now optional: when unset, each upload response advertises a URL
+built from how the request arrived (scheme + host), so links are correct whether
+you hit the server over the tailnet (`http://host:7777`) or a public HTTPS proxy
+(`https://...`). Set `BASE_URL` only to force one fixed value.
+
+Set the password at install time with `make install PASSWORD=...`.
 
 ## Layout
 
@@ -169,6 +190,7 @@ Makefile                   build + smdctl + extension wrappers
 
 ## Things it deliberately doesn't do
 
-No auth tokens, no signed URLs, no expiry, no garbage collection, no upload
-history, no drag and drop, no Tailscale Funnel. If you want any of that,
-it's a couple hours of work, but I don't.
+No signed URLs, no expiry, no garbage collection, no upload history, no drag
+and drop. Auth is a single shared password, not per-user tokens, and reads are
+unauthenticated by design. If you want any of that, it's a couple hours of
+work, but I don't.

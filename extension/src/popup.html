@@ -12,8 +12,10 @@
     </div>
     <div id="settings" class="hidden">
       <label for="server-url">Server URL</label>
-      <input type="text" id="server-url" placeholder="http://host.tail-XXXX.ts.net:7777" autocomplete="off" spellcheck="false">
-      <div class="hint">The server prints this URL on startup.</div>
+      <input type="text" id="server-url" placeholder="https://host.tail-XXXX.ts.net" autocomplete="off" spellcheck="false">
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="changeme" autocomplete="off" spellcheck="false">
+      <div class="hint">The server prints its URL on startup. Password matches the server's PASSWORD.</div>
     </div>
     <div id="status"></div>
     <button id="grant" class="hidden">Grant access to server</button>

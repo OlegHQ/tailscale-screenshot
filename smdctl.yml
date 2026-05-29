@@ -5,4 +5,7 @@ workdir: __DATA_DIR__
 environment:
   PORT: "__PORT__"
   DATA_DIR: __DATA_DIR__
+  PASSWORD: __PASSWORD__
+  # BASE_URL is left unset on purpose: the server derives the advertised URL
+  # from each request (Host / X-Forwarded-* headers). Set it here to pin one.
 restart: always

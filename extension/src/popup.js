@@ -2,6 +2,9 @@
 // Chrome only `chrome` (also promise-based under MV3). Prefer `browser`.
 const api = globalThis.browser ?? globalThis.chrome;
 
+// Matches the server's insecure default; override it (both sides) in settings.
+const DEFAULT_PASSWORD = "changeme";
+
 const $ = (id) => document.getElementById(id);
 const setStatus = (msg, cls) => {
   const el = $("status");
@@ -9,16 +12,21 @@ const setStatus = (msg, cls) => {
   el.className = cls || "";
 };
 
-async function loadServerUrl() {
-  const { serverUrl = "" } = await api.storage.local.get("serverUrl");
-  $("server-url").value = serverUrl;
-  return serverUrl;
+async function loadSettings() {
+  const cfg = await api.storage.local.get({
+    serverUrl: "",
+    password: DEFAULT_PASSWORD,
+  });
+  $("server-url").value = cfg.serverUrl;
+  $("password").value = cfg.password;
+  return cfg;
 }
 
-async function saveServerUrl() {
-  const url = $("server-url").value.trim().replace(/\/+$/, "");
-  await api.storage.local.set({ serverUrl: url });
-  return url;
+async function saveSettings() {
+  const serverUrl = $("server-url").value.trim().replace(/\/+$/, "");
+  const password = $("password").value;
+  await api.storage.local.set({ serverUrl, password });
+  return { serverUrl, password };
 }
 
 // Match pattern covering the configured server, any port (patterns ignore port).
@@ -48,7 +56,7 @@ async function readClipboardImage() {
   return null;
 }
 
-async function autoUpload(serverUrl) {
+async function autoUpload(cfg) {
   setStatus("Reading clipboard…");
   let blob;
   try {
@@ -63,11 +71,18 @@ async function autoUpload(serverUrl) {
   }
   setStatus("Uploading…");
   try {
-    const res = await fetch(serverUrl + "/upload", {
+    const headers = { "Content-Type": blob.type };
+    if (cfg.password) headers["Authorization"] = "Basic " + btoa("user:" + cfg.password);
+    const res = await fetch(cfg.serverUrl + "/upload", {
       method: "POST",
-      headers: { "Content-Type": blob.type },
+      headers,
       body: blob,
     });
+    if (res.status === 401) {
+      setStatus("Unauthorized — check the password in settings.", "error");
+      $("settings").classList.remove("hidden");
+      return;
+    }
     if (!res.ok) throw new Error("HTTP " + res.status);
     const { url } = await res.json();
     if (!url) throw new Error("no url in response");
@@ -80,13 +95,13 @@ async function autoUpload(serverUrl) {
     // fetch was blocked for lack of a granted host permission (Firefox MV3).
     // Offer the grant-and-retry button rather than dead-ending on the error.
     setStatus("Upload failed: " + e.message, "error");
-    if (e instanceof TypeError) showGrant(serverUrl);
+    if (e instanceof TypeError) showGrant(cfg);
   }
 }
 
 // Reveal the grant button; on click, request host access then (re)upload.
 // permissions.request() must run from a user gesture, so it can't be automatic.
-function showGrant(serverUrl, msg) {
+function showGrant(cfg, msg) {
   const btn = $("grant");
   if (!api.permissions || !api.permissions.request) return;
   btn.classList.remove("hidden");
@@ -94,7 +109,7 @@ function showGrant(serverUrl, msg) {
   btn.onclick = async () => {
     let granted;
     try {
-      granted = await api.permissions.request({ origins: [originPattern(serverUrl)] });
+      granted = await api.permissions.request({ origins: [originPattern(cfg.serverUrl)] });
     } catch (e) {
       setStatus("Permission request failed: " + e.message, "error");
       return;
@@ -104,32 +119,33 @@ function showGrant(serverUrl, msg) {
       return;
     }
     btn.classList.add("hidden");
-    await autoUpload(serverUrl);
+    await autoUpload(cfg);
   };
 }
 
 // Upload if we already have host access; otherwise show a one-time grant button.
-async function startUpload(serverUrl) {
-  if (await hasHostPermission(serverUrl)) {
-    await autoUpload(serverUrl);
+async function startUpload(cfg) {
+  if (await hasHostPermission(cfg.serverUrl)) {
+    await autoUpload(cfg);
     return;
   }
-  showGrant(serverUrl, "Firefox needs permission to reach this server.");
+  showGrant(cfg, "Firefox needs permission to reach this server.");
 }
 
 async function init() {
   $("settings-toggle").addEventListener("click", () =>
     $("settings").classList.toggle("hidden"),
   );
-  $("server-url").addEventListener("blur", saveServerUrl);
+  $("server-url").addEventListener("blur", saveSettings);
+  $("password").addEventListener("blur", saveSettings);
 
-  const serverUrl = await loadServerUrl();
-  if (!serverUrl) {
+  const cfg = await loadSettings();
+  if (!cfg.serverUrl) {
     $("settings").classList.remove("hidden");
     setStatus("Set the server URL to begin.");
     return;
   }
-  await startUpload(serverUrl);
+  await startUpload(cfg);
 }
 
 init();

@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 
 PORT        ?= 7777
+PASSWORD    ?= changeme
 TARGET      ?= aarch64-unknown-linux-musl
 SERVICE     := tailscale-screenshot
 INSTALL_DIR ?= $(HOME)/.local/bin
@@ -55,6 +56,7 @@ install: build
 	@sed -e 's|__INSTALL_DIR__|$(INSTALL_DIR)|g' \
 	     -e 's|__DATA_DIR__|$(DATA_DIR)|g' \
 	     -e 's|__PORT__|$(PORT)|g' \
+	     -e 's|__PASSWORD__|$(PASSWORD)|g' \
 	     smdctl.yml > .smdctl.rendered.yml
 	@if smdctl ps -a 2>/dev/null | grep -q '\b$(SERVICE)\b'; then \
 	   smdctl rm -f $(SERVICE) >/dev/null 2>&1 || true; \
