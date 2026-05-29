@@ -2,3 +2,9 @@ server/target/
 .smdctl.rendered.yml
 *.swp
 .DS_Store
+
+# Generated extension artifacts
+extension/build/
+extension/dist/
+extension/web-ext-artifacts/
+extension/src/manifest.json

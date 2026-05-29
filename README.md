@@ -13,7 +13,7 @@ no database. Tailscale is the perimeter.
 ```mermaid
 sequenceDiagram
     actor You
-    participant Ext as Chrome popup
+    participant Ext as Browser popup
     participant Srv as Rust server (on your tailnet)
     You->>You: screenshot to clipboard
     You->>Ext: Ctrl+Shift+U
@@ -67,11 +67,59 @@ loginctl enable-linger $USER
 
 ## Extension
 
-1. Go to `chrome://extensions`, flip on Developer mode.
-2. Load unpacked, pick the `extension/` directory.
-3. Pin it from the puzzle-piece menu so the shortcut works without the popup hidden.
-4. Open the popup, click the gear, paste the URL from `make url`, click off the field.
-5. If `Ctrl+Shift+U` collides with something, rebind it at `chrome://extensions/shortcuts`.
+One MV3 codebase, two browsers. `extension/src/` holds the shared popup;
+`manifest.chrome.json` and `manifest.firefox.json` are the per-browser
+manifests. The build copies the shared files plus the right manifest into
+`extension/build/<browser>/`, and packaging zips that up into
+`extension/dist/`.
+
+```
+make ext-build            # unpacked dirs in build/ AND packages in dist/:
+                          #   dist/tailscale-screenshot.xpi        (firefox)
+                          #   dist/tailscale-screenshot-chrome.zip (chrome)
+make ext-unpacked         # only the unpacked dirs (fast; skips packaging)
+```
+
+You need `node`/`npm` (for `web-ext`, pulled on demand via `npx`).
+
+### Chrome
+
+1. `make ext-build-chrome`  (or `make ext-unpacked-chrome` for just the dir)
+2. Go to `chrome://extensions`, flip on Developer mode.
+3. Load unpacked, pick `extension/build/chrome`.
+4. Pin it from the puzzle-piece menu so the shortcut works without the popup hidden.
+5. Open the popup, click the gear, paste the URL from `make url`, click off the field.
+6. If `Ctrl+Shift+U` collides with something, rebind it at `chrome://extensions/shortcuts`.
+
+### Firefox (Developer Edition)
+
+For day-to-day work, just live-dev it — this launches Firefox Developer
+Edition with the extension loaded and reloads on every save:
+
+```
+make ext-watch
+```
+
+(Override the binary with `FIREFOX_BIN=/path/to/firefox make ext-watch` if it
+isn't at `/Applications/Firefox Developer Edition.app`.)
+
+To produce the installable `.xpi`:
+
+```
+make ext-build-firefox        # one-off  -> extension/dist/tailscale-screenshot.xpi
+make ext-watch-xpi            # rebuild the .xpi on every source change
+```
+
+Installing the `.xpi` in Developer Edition:
+
+- **Temporary** (gone on restart, no signing): `about:debugging#/runtime/this-firefox`
+  → *Load Temporary Add-on* → pick the `.xpi` (or `extension/build/firefox/manifest.json`).
+- **Persistent**: Developer Edition allows unsigned add-ons if you set
+  `xpinstall.signatures.required` to `false` in `about:config`, then open the
+  `.xpi` from `about:addons` (gear → *Install Add-on From File*).
+
+The keyboard shortcut lives at `about:addons` → gear → *Manage Extension
+Shortcuts* if `Ctrl+Shift+U` is taken.
 
 ## API
 
@@ -108,10 +156,15 @@ All optional, all env vars:
 ## Layout
 
 ```
-server/         one main.rs, axum, ~150 lines
-extension/      MV3 popup
-smdctl.yml      service descriptor (Makefile fills in the paths)
-Makefile        build + smdctl wrappers
+server/                    one main.rs, axum, ~150 lines
+extension/
+  src/                     shared MV3 popup (html/js/css)
+  manifest.chrome.json     chrome manifest
+  manifest.firefox.json    firefox manifest (gecko id, min version)
+  scripts/                 build / package / dev-run helpers
+  build/  dist/            generated (gitignored)
+smdctl.yml                 service descriptor (Makefile fills in the paths)
+Makefile                   build + smdctl + extension wrappers
 ```
 
 ## Things it deliberately doesn't do

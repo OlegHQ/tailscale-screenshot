@@ -1,7 +1,8 @@
 use axum::{
     body::Bytes,
     extract::{DefaultBodyLimit, Path, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{header, HeaderMap, HeaderValue, StatusCode},
+    middleware,
     response::{IntoResponse, Response},
     routing::{get, post},
     Router,
@@ -40,15 +41,46 @@ async fn main() {
 
     let app = Router::new()
         .route("/healthz", get(|| async { "ok" }))
-        .route("/upload", post(upload))
+        // OPTIONS handles the CORS preflight a browser sends before a POST with
+        // a non-simple Content-Type (e.g. image/png).
+        .route("/upload", post(upload).options(preflight))
         .route("/s/:filename", get(serve))
         .layer(DefaultBodyLimit::max(MAX_BODY))
+        // Attach permissive CORS headers to every response. The tailnet is the
+        // perimeter and there's no auth, so allowing any origin costs nothing
+        // and lets browser extensions (Firefox MV3 especially) upload.
+        .layer(middleware::map_response(add_cors_headers))
         .with_state(state);
 
     let addr: SocketAddr = ([0, 0, 0, 0], port).into();
     let listener = TcpListener::bind(addr).await.expect("bind");
     println!("Listening on {}", addr);
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn preflight() -> Response {
+    StatusCode::NO_CONTENT.into_response()
+}
+
+async fn add_cors_headers(mut res: Response) -> Response {
+    let h = res.headers_mut();
+    h.insert(
+        header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        HeaderValue::from_static("*"),
+    );
+    h.insert(
+        header::ACCESS_CONTROL_ALLOW_METHODS,
+        HeaderValue::from_static("GET, POST, OPTIONS"),
+    );
+    h.insert(
+        header::ACCESS_CONTROL_ALLOW_HEADERS,
+        HeaderValue::from_static("*"),
+    );
+    h.insert(
+        header::ACCESS_CONTROL_MAX_AGE,
+        HeaderValue::from_static("86400"),
+    );
+    res
 }
 
 fn detect_base_url(port: u16) -> String {
