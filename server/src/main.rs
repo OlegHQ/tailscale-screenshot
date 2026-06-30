@@ -32,9 +32,8 @@ async fn main() {
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(7777);
-    let data_dir = PathBuf::from(
-        std::env::var("DATA_DIR").unwrap_or_else(|_| "./screenshots".to_string()),
-    );
+    let data_dir =
+        PathBuf::from(std::env::var("DATA_DIR").unwrap_or_else(|_| "./screenshots".to_string()));
     fs::create_dir_all(&data_dir).expect("create data dir");
 
     let base_url = std::env::var("BASE_URL").ok().filter(|s| !s.is_empty());
@@ -103,7 +102,10 @@ fn authorized(headers: &HeaderMap, password: &str) -> bool {
     let Ok(creds) = String::from_utf8(decoded) else {
         return false;
     };
-    let supplied = creds.splitn(2, ':').nth(1).unwrap_or("");
+    let supplied = creds
+        .split_once(':')
+        .map(|(_, password)| password)
+        .unwrap_or("");
     constant_time_eq(supplied.as_bytes(), password.as_bytes())
 }
 
@@ -160,7 +162,10 @@ async fn add_cors_headers(mut res: Response) -> Response {
 }
 
 fn detect_base_url(port: u16) -> String {
-    if let Ok(out) = Command::new("tailscale").args(["status", "--json"]).output() {
+    if let Ok(out) = Command::new("tailscale")
+        .args(["status", "--json"])
+        .output()
+    {
         if out.status.success() {
             if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
                 if let Some(name) = v
@@ -255,21 +260,14 @@ async fn upload(State(state): State<AppState>, headers: HeaderMap, body: Bytes) 
     }
     let url = format!("{}/s/{}", request_base_url(&state, &headers), filename);
     let body = serde_json::json!({ "url": url, "id": id }).to_string();
-    (
-        [(header::CONTENT_TYPE, "application/json")],
-        body,
-    )
-        .into_response()
+    ([(header::CONTENT_TYPE, "application/json")], body).into_response()
 }
 
 async fn serve(State(state): State<AppState>, Path(filename): Path<String>) -> Response {
     let Some((id, ext)) = filename.rsplit_once('.') else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    if id.is_empty()
-        || id.len() > 32
-        || !id.chars().all(|c| c.is_ascii_alphanumeric())
-    {
+    if id.is_empty() || id.len() > 32 || !id.chars().all(|c| c.is_ascii_alphanumeric()) {
         return StatusCode::NOT_FOUND.into_response();
     }
     let Some(mime) = mime_for_ext(ext) else {

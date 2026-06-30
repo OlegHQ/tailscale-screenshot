@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release artifacts
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: rust-lld
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Install Rust target
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-unknown-linux-musl
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Build server
+        run: cargo build --manifest-path server/Cargo.toml --release --target aarch64-unknown-linux-musl
+
+      - name: Stage server artifact
+        run: |
+          mkdir -p release
+          cp server/target/aarch64-unknown-linux-musl/release/tailscale-screenshot release/tailscale-screenshot-linux-arm64
+          chmod 755 release/tailscale-screenshot-linux-arm64
+
+      - name: Build extension artifacts
+        run: make ext-build
+
+      - name: Verify artifacts
+        run: |
+          test -s release/tailscale-screenshot-linux-arm64
+          test -s extension/dist/tailscale-screenshot.xpi
+          test -s extension/dist/tailscale-screenshot-chrome.zip
+          file release/tailscale-screenshot-linux-arm64
+          ldd release/tailscale-screenshot-linux-arm64 2>&1 | grep -q "not a dynamic executable"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            release/tailscale-screenshot-linux-arm64 \
+            extension/dist/tailscale-screenshot.xpi \
+            extension/dist/tailscale-screenshot-chrome.zip

@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: Server
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: rust-lld
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Install Rust components
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup component add clippy rustfmt
+          rustup target add aarch64-unknown-linux-musl
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path server/Cargo.toml -- --check
+
+      - name: Run clippy
+        run: cargo clippy --manifest-path server/Cargo.toml --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test --manifest-path server/Cargo.toml
+
+      - name: Build linux arm64 static binary
+        run: cargo build --manifest-path server/Cargo.toml --release --target aarch64-unknown-linux-musl
+
+      - name: Verify static linux arm64 binary
+        run: |
+          file server/target/aarch64-unknown-linux-musl/release/tailscale-screenshot
+          ldd server/target/aarch64-unknown-linux-musl/release/tailscale-screenshot 2>&1 | grep -q "not a dynamic executable"
+
+  extension:
+    name: Extension
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Build Firefox package
+        run: make ext-build-firefox
+
+      - name: Lint Firefox package source
+        run: npx --yes web-ext lint --source-dir extension/build/firefox
+
+      - name: Build Chrome package
+        run: make ext-build-chrome
+
+      - name: Check packaged artifacts
+        run: |
+          test -s extension/dist/tailscale-screenshot.xpi
+          test -s extension/dist/tailscale-screenshot-chrome.zip

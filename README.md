@@ -64,6 +64,25 @@ User-mode services stop when you log out unless you tell systemd otherwise:
 loginctl enable-linger $USER
 ```
 
+### Release Binary
+
+Tagged GitHub releases include a ready-to-run Linux arm64 server binary:
+
+```
+tailscale-screenshot-linux-arm64
+```
+
+On the target Linux arm64 machine:
+
+```
+install -m 755 tailscale-screenshot-linux-arm64 ~/.local/bin/tailscale-screenshot
+PORT=7777 DATA_DIR=$HOME/.local/share/tailscale-screenshot PASSWORD=change-this \
+  ~/.local/bin/tailscale-screenshot
+```
+
+The binary is built for `aarch64-unknown-linux-musl` and checked as statically
+linked in CI.
+
 [smdctl]: https://github.com/nexo-tech/smdctl
 
 ## Extension
@@ -115,12 +134,51 @@ Installing the `.xpi` in Developer Edition:
 
 - **Temporary** (gone on restart, no signing): `about:debugging#/runtime/this-firefox`
   → *Load Temporary Add-on* → pick the `.xpi` (or `extension/build/firefox/manifest.json`).
-- **Persistent**: Developer Edition allows unsigned add-ons if you set
-  `xpinstall.signatures.required` to `false` in `about:config`, then open the
-  `.xpi` from `about:addons` (gear → *Install Add-on From File*).
+- **Persistent unsigned install**:
+  1. Open Firefox Developer Edition.
+  2. Go to `about:config`.
+  3. Set `xpinstall.signatures.required` to `false`.
+  4. Go to `about:addons`, open the gear menu, choose *Install Add-on From File*,
+     and select `tailscale-screenshot.xpi`.
+
+That preference is intentionally available in Firefox Developer Edition,
+Firefox Nightly, and unbranded builds. Regular Firefox release builds still
+require signed add-ons for persistent installs.
 
 The keyboard shortcut lives at `about:addons` → gear → *Manage Extension
 Shortcuts* if `Ctrl+Shift+U` is taken.
+
+### GitHub Release Flow
+
+CI runs on pushes to `main` and pull requests. It checks:
+
+```
+cargo fmt
+cargo clippy -D warnings
+cargo test
+cargo build --release --target aarch64-unknown-linux-musl
+web-ext lint
+make ext-build-firefox
+make ext-build-chrome
+```
+
+Create a release by pushing a version tag:
+
+```
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow publishes:
+
+```
+tailscale-screenshot.xpi              # Firefox Developer Edition package
+tailscale-screenshot-chrome.zip       # Chrome package
+tailscale-screenshot-linux-arm64      # static Linux arm64 server binary
+```
+
+Download `tailscale-screenshot.xpi` from the GitHub release, apply the
+Developer Edition preference above, and install it from `about:addons`.
 
 ## Auth
 

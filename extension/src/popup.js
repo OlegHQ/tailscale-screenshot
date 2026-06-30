@@ -8,7 +8,7 @@ const DEFAULT_PASSWORD = "changeme";
 const $ = (id) => document.getElementById(id);
 const setStatus = (msg, cls) => {
   const el = $("status");
-  el.innerHTML = msg;
+  el.textContent = msg;
   el.className = cls || "";
 };
 
@@ -88,7 +88,7 @@ async function autoUpload(cfg) {
     if (!url) throw new Error("no url in response");
     const prompt = `[Use curl to download and read this screenshot: ${url}]`;
     await navigator.clipboard.writeText(prompt);
-    setStatus('Copied <span class="url">' + prompt + "</span>", "success");
+    setStatus("Copied " + prompt, "success");
     setTimeout(() => window.close(), 800);
   } catch (e) {
     // A NetworkError/TypeError with no response usually means the cross-origin
